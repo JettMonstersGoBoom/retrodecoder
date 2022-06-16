@@ -140,7 +140,7 @@ int main(int argc, char* argv[])
 		int tileswide = 256/decoder->width;
 		for (int y=0;y<screen->h;y++)
 		{
-			for (int x=0;x<256;x++)
+			for (int x=0;x<tileswide*decoder->width;x++)
 			{
 				//	calculate what tile we're using 
 				int tile = (x/decoder->width) | ((y/decoder->height)*tileswide);

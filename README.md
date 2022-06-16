@@ -7,6 +7,7 @@ Written as an example of how to decode retro graphics, based on ideas presented 
 |----------------|-----|
 |1 bit Chars.| 8x8 |
 |2 bit C64 Chars.| 8x8 |
+|2 bit C64 Sprites.| 24x21 |
 |2 bit NES Chars| 8x8 |
 |4 bit Sega Genesis Chars.| 8x8 | 
 |4 bit PC Engine Chars.| 8x8 |
