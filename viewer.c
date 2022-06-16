@@ -1,0 +1,201 @@
+
+#include <stdio.h>
+#include <stdint.h>
+#include "tigr.h"
+#include "decoder.h"
+
+//	some example decoders
+//	note the colors are just placeholder ( or tuned to the example data )
+codec_t decoders[] = {
+	{
+		"Hires",
+		8,8,																																							//	tile width and height
+		1024,																																							//	max tiles
+		1,																																								//	number of planes
+		0x00,0x00,0x00,0x00,																															//	plane offsets
+		0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,	//	xbit offset
+		0x00,0x08,0x10,0x18,0x20,0x28,0x30,0x38,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,	//	ybit offset
+		64,																																								//	number of *bits* per tile
+		0xff000000,0xffffffff																															//	debug colors
+	}	
+	,
+	{
+		"C64 MC",
+		8,8,
+		1024,
+		2,
+		0x00,0x01,0x00,0x00,
+		0x00,0x00,0x02,0x02,0x04,0x04,0x06,0x06,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		0x00,0x08,0x10,0x18,0x20,0x28,0x30,0x38,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		64,
+		0xffffffff,0xff404040,0xffa0a0a0,0xff000000
+	}	
+	,
+	{
+		"NES",
+		8,8,
+		1024,
+		2,
+		0x40,0x00,0x00,0x00,
+		0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		0x00,0x08,0x10,0x18,0x20,0x28,0x30,0x38,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		128,
+		0xff000000,0xffffffff,0xff404040,0xffa0a0a0
+	}	
+	,
+	{
+		"PCE",
+		8,8,
+		1024,
+		4,
+		0x00,0x08,0x80,0x88,
+		0x00,0x01,0x02,0x03,0x04,0x05,0x06,0x07,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		0x00,0x10,0x20,0x30,0x40,0x50,0x60,0x70,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		256,
+		0xff000000,0xff101010,0xff202020,0xff303030,0xff404040,0xff505050,0xff606060,0xff707070,
+		0xff808080,0xff909090,0xffa0a0a0,0xffb0b0b0,0xffc0c0c0,0xffd0d0d0,0xffe0e0e0,0xfff0f0f0	
+	}	
+	,
+	{
+		"Sega Genesis",
+		8,8,
+		1024,
+		4,
+		0x03,0x02,0x01,0x00,
+		0x00,0x04,0x08,0x0c,0x10,0x14,0x18,0x1c,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		0x00,0x20,0x40,0x60,0x80,0xa0,0xc0,0xe0,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,
+		256,
+		0xff000000,0xff101010,0xff202020,0xff303030,0xff404040,0xff505050,0xff606060,0xff707070,
+		0xff808080,0xff909090,0xffa0a0a0,0xffb0b0b0,0xffc0c0c0,0xffd0d0d0,0xffe0e0e0,0xfff0f0f0	
+	}	
+	,
+	{
+		"M64 NCM",
+		16,8,
+		8192,
+		4,
+		0x03,0x02,0x01,0x00,
+		0x04,0x00,0x0c,0x08,0x14,0x10,0x1c,0x18,0x24,0x20,0x2c,0x28,0x34,0x30,0x3c,0x38,
+		0x00,0x40,0x80,0xc0,0x100,0x140,0x180,0x1c0,0x200,0x240,0x280,0x2c0,0x300,0x340,0x380,0x3c0,
+		0x400,
+		0xff000000,0xff101010,0xff202020,0xff303030,0xff404040,0xff505050,0xff606060,0xff707070,
+		0xff808080,0xff909090,0xffa0a0a0,0xffb0b0b0,0xffc0c0c0,0xffd0d0d0,0xffe0e0e0,0xfff0f0f0	
+	}	
+};
+
+//	using tigr to display
+//	16 color palette
+TPixel palette[16];
+
+int main(int argc, char* argv[])
+{
+	uint8_t *rom;
+	int rom_len;
+	int decindex = 0;
+	//	determine the count of decoders
+	int DECODERS = sizeof(decoders)/sizeof(codec_t);
+	if (argc<=1)
+	{
+		printf("supply a binary file\n");
+		return(0);
+	}
+
+	//	read binary file
+	rom = tigrReadFile(argv[1],&rom_len);
+
+
+	uint8_t color = 1;
+	//	open window
+	Tigr* screen = tigrWindow(320, 256, "Retro", 0);
+
+	while (!tigrClosed(screen) && !tigrKeyDown(screen, TK_ESCAPE))
+	{
+		// clear window
+		tigrClear(screen, tigrRGB(0x80, 0x90, 0xa0));
+
+		//	set ptr to current decoder
+		codec_t *decoder = &decoders[decindex];
+
+		//	update the palette from the decoder
+		for (int q=0;q<16;q++)
+		{
+			palette[q]=tigrRGB((decoder->colors[q]>>16 & 0xff),(decoder->colors[q]>>8 & 0xff),(decoder->colors[q] & 0xff));
+			//	draw a color block
+			tigrFill(screen,256+(q*4),0,4,4,palette[q]);
+		}
+
+		//	draw a grid of tiles
+		int tileswide = 256/decoder->width;
+		for (int y=0;y<screen->h;y++)
+		{
+			for (int x=0;x<256;x++)
+			{
+				//	calculate what tile we're using 
+				int tile = (x/decoder->width) | ((y/decoder->height)*tileswide);
+
+				//	plot the relevant pixel
+				tigrPlot(screen,x,y,palette[getPix(rom,rom_len,decoder,x,y,tile)]);
+			}
+		}
+
+		//	grab the mouse
+		int mx,my,buttons;
+		tigrMouse(screen,&mx,&my,&buttons);
+		//	determine the tile we're over
+		int tile = (mx/decoder->width) | ((my/decoder->height)*tileswide);
+
+		//	draw zoomed in view
+		for (int y=0;y<decoder->height;y++)
+		{
+			for (int x=0;x<decoder->width;x++)
+			{
+				//	plot the relevant pixel
+				tigrFill(screen,256+(x*4),4+y*4,4,4,palette[getPix(rom,rom_len,decoder,x,y,tile)]);
+			}
+		}
+		//	draw the cursor in the zoomed window
+		tigrRect(screen,256+((mx%decoder->width)*4),4+(my%decoder->height)*4,4,4,tigrRGBA(255,255,255,128));
+
+		//	draw the grid
+		for (int y=0;y<screen->h;y+=decoder->height)
+		{
+			tigrLine(screen,0,y,256,y,tigrRGBA(255,255,255,128));
+		}
+		for (int x=0;x<256;x+=decoder->width)
+		{
+			tigrLine(screen,x,0,x,screen->h,tigrRGBA(255,255,255,128));
+		}
+
+		//	check for mouse input
+		{
+			//	left button = paint
+			if ((buttons&1)==1)
+			{
+				setPix(rom,rom_len,decoder,mx,my,color,tile);			
+			}
+			//	right button = grab color under mouse
+			if ((buttons&4)!=0)
+			{
+				color = getPix(rom,rom_len,decoder,mx,my,tile);			
+			}
+		}
+
+		//	use - + to toggle which decoder to use
+		if (tigrKeyDown(screen,TK_EQUALS))
+		{
+			decindex+=1;
+			if (decindex>=DECODERS) decindex=0;
+		}
+		if (tigrKeyDown(screen,TK_MINUS))
+		{
+			if (decindex!=0)	decindex-=1;
+			else decindex=DECODERS-1;
+		}
+		//	give us info 
+		tigrPrint(screen,tfont,0,screen->h-10,tigrRGB(255,255,255),"DEC %s %d bpp",decoder->name,decoder->planes);
+
+		tigrUpdate(screen);
+	}
+	tigrFree(screen);
+	return 0;
+}
