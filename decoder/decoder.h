@@ -9,8 +9,8 @@ typedef struct
 	int total;
 	int planes;
 	int planeoffsets[4];
-	int xoffsets[16];
-	int yoffsets[16];
+	int xoffsets[32];
+	int yoffsets[32];
 	int charincrement;
 	uint32_t colors[16];
 } codec_t;

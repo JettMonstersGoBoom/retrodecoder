@@ -12,3 +12,4 @@ endif
 
 view : viewer.c tigr/tigr.c decoder/decoder.c
 	gcc $^ -Os -o $@ $(CFLAGS) $(LDFLAGS)
+
